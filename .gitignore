@@ -6,11 +6,6 @@ docs/.vuepress/.temp
 # Node.js dependencies
 node_modules/
 
-# Package manager files
-pnpm-lock.yaml
-yarn.lock
-package-lock.json
-
 # Log files
 *.log
 npm-debug.log*
