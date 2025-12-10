@@ -1,0 +1,292 @@
+<template><div><h1 id="多标签页登录状态同步-一个简单而有效的解决方案" tabindex="-1"><a class="header-anchor" href="#多标签页登录状态同步-一个简单而有效的解决方案"><span>多标签页登录状态同步：一个简单而有效的解决方案</span></a></h1>
+<h2 id="前言" tabindex="-1"><a class="header-anchor" href="#前言"><span>前言</span></a></h2>
+<p>在现代 Web 应用中，用户经常会打开多个浏览器标签页。当用户在其中一个标签页完成登录后，其他标签页如何自动同步登录状态，是一个常见但容易被忽视的问题。本文将分享我们在微服务架构的授权中心中，如何通过一个简单而优雅的方案解决这个问题。</p>
+<h2 id="问题场景" tabindex="-1"><a class="header-anchor" href="#问题场景"><span>问题场景</span></a></h2>
+<p>想象这样一个场景：
+你正在使用一个需要登录的 Web 应用，同时打开了两个标签页。在第一个标签页（标签页 A）输入账号密码，点击登录，系统提示&quot;登录成功&quot;。此时你切换到第二个标签页（标签页 B），发现页面仍然显示登录表单。
+你可能会想：&quot;我已经在标签页 A 登录了，为什么标签页 B 还是显示未登录？&quot;于是你在标签页 B 再次点击登录按钮。</p>
+<p><strong>问题来了</strong>：</p>
+<ol>
+<li>标签页 B 的登录请求可能使用的是旧的 token，导致登录状态异常</li>
+<li>新登录可能会挤掉标签页 A 的登录状态</li>
+<li>即使登录成功，由于使用了旧的 token，最终还是被重定向回登录页</li>
+<li>两个标签页的登录状态无法同步，用户体验很差</li>
+</ol>
+<p>这就是我们遇到的问题：<strong>多标签页之间的登录状态无法实时同步</strong>。</p>
+<h2 id="问题根源" tabindex="-1"><a class="header-anchor" href="#问题根源"><span>问题根源</span></a></h2>
+<p>在微服务架构中，我们的授权中心负责用户登录认证。登录成功后，系统会在 Cookie 中存储 token。但是，当用户在标签页 A 登录后，标签页 B 并不知道 Cookie 中已经有了 token，因为：</p>
+<ol>
+<li><strong>缺乏实时监测机制</strong>：登录页面没有实时监测 Cookie 中 token 的变化</li>
+<li><strong>状态不同步</strong>：多个标签页之间的 token 状态无法实时同步</li>
+<li><strong>重复登录冲突</strong>：在已有 token 的情况下仍可重复登录，导致登录状态冲突</li>
+</ol>
+<h2 id="解决方案" tabindex="-1"><a class="header-anchor" href="#解决方案"><span>解决方案</span></a></h2>
+<h3 id="核心思路" tabindex="-1"><a class="header-anchor" href="#核心思路"><span>核心思路</span></a></h3>
+<p>我们的解决方案非常简单：<strong>在登录页面启动一个定时器，每秒检查一次 Cookie 中是否存在 token。如果检测到 token，就自动刷新页面</strong>。</p>
+<p>这样，当用户在标签页 A 登录后，标签页 B 会在 1 秒内检测到 Cookie 中的 token，然后自动刷新页面，加载最新的登录状态。</p>
+<h3 id="实现方案" tabindex="-1"><a class="header-anchor" href="#实现方案"><span>实现方案</span></a></h3>
+<h4 id="_1-轮询监测机制" tabindex="-1"><a class="header-anchor" href="#_1-轮询监测机制"><span>1. 轮询监测机制</span></a></h4>
+<p>在登录页面挂载时，启动一个定时器，每秒检查一次 Cookie 中的 token：</p>
+<div class="language-typescript line-numbers-mode" data-highlighter="prismjs" data-ext="ts"><pre v-pre><code><span class="line"><span class="token comment">// 启动 token 轮询定时器</span></span>
+<span class="line"><span class="token keyword">const</span> <span class="token function-variable function">startTokenPolling</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span></span>
+<span class="line">  tokenPollingTimer<span class="token punctuation">.</span>value <span class="token operator">=</span> window<span class="token punctuation">.</span><span class="token function">setInterval</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span></span>
+<span class="line">    <span class="token keyword">const</span> token <span class="token operator">=</span> Store<span class="token punctuation">.</span><span class="token function">get_cookie</span><span class="token punctuation">(</span><span class="token string">'token'</span><span class="token punctuation">)</span></span>
+<span class="line"></span>
+<span class="line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>token<span class="token punctuation">)</span> <span class="token punctuation">{</span></span>
+<span class="line">      <span class="token comment">// 检测到 token，刷新页面</span></span>
+<span class="line">      <span class="token function">clearTokenPolling</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span>
+<span class="line">      window<span class="token punctuation">.</span>location<span class="token punctuation">.</span><span class="token function">reload</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span>
+<span class="line">      <span class="token keyword">return</span></span>
+<span class="line">    <span class="token punctuation">}</span></span>
+<span class="line"></span>
+<span class="line">    <span class="token comment">// 超过 5 分钟未检测到 token，停止轮询</span></span>
+<span class="line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>tokenPollingElapsed<span class="token punctuation">.</span>value <span class="token operator">>=</span> <span class="token number">300</span><span class="token punctuation">)</span> <span class="token punctuation">{</span></span>
+<span class="line">      <span class="token function">clearTokenPolling</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span>
+<span class="line">    <span class="token punctuation">}</span></span>
+<span class="line">  <span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token number">1000</span><span class="token punctuation">)</span> <span class="token comment">// 每 1 秒执行一次</span></span>
+<span class="line"><span class="token punctuation">}</span></span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p><strong>关键设计点</strong>：</p>
+<ul>
+<li><strong>轮询频率</strong>：1 秒一次，既能及时检测到变化，又不会造成性能问题</li>
+<li><strong>超时保护</strong>：5 分钟后自动停止，避免无限轮询</li>
+<li><strong>自动刷新</strong>：检测到 token 后立即刷新页面，用户无感知</li>
+</ul>
+<h4 id="_2-智能的定时器管理" tabindex="-1"><a class="header-anchor" href="#_2-智能的定时器管理"><span>2. 智能的定时器管理</span></a></h4>
+<p>我们不是简单地&quot;点击登录就清除定时器&quot;，而是采用了更智能的策略：</p>
+<p><strong>只在真正发送登录请求时清除定时器</strong></p>
+<div class="language-typescript line-numbers-mode" data-highlighter="prismjs" data-ext="ts"><pre v-pre><code><span class="line"><span class="token comment">// 通过所有验证后，准备发送登录请求时才清除定时器</span></span>
+<span class="line"><span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token comment">/* 所有验证通过 */</span><span class="token punctuation">)</span> <span class="token punctuation">{</span></span>
+<span class="line">  <span class="token function">clearTokenPolling</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token comment">// 清除定时器</span></span>
+<span class="line">  <span class="token comment">// 发送登录请求</span></span>
+<span class="line"><span class="token punctuation">}</span></span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>这样设计的好处是：如果用户点击登录但验证失败（比如协议未勾选），页面仍停留在登录页，定时器会继续工作，继续监测其他标签页的登录状态。</p>
+<p><strong>登录失败后重新启动轮询</strong></p>
+<p>如果登录失败，用户仍停留在登录页面，此时会重新启动轮询：</p>
+<div class="language-typescript line-numbers-mode" data-highlighter="prismjs" data-ext="ts"><pre v-pre><code><span class="line"><span class="token comment">// 登录失败后</span></span>
+<span class="line"><span class="token keyword">if</span> <span class="token punctuation">(</span>loginFailed<span class="token punctuation">)</span> <span class="token punctuation">{</span></span>
+<span class="line">  <span class="token function">startTokenPolling</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token comment">// 重新启动轮询</span></span>
+<span class="line"><span class="token punctuation">}</span></span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>这样确保用户在登录失败后，仍能自动同步其他标签页的登录状态。</p>
+<h4 id="_3-401-异常时的状态同步" tabindex="-1"><a class="header-anchor" href="#_3-401-异常时的状态同步"><span>3. 401 异常时的状态同步</span></a></h4>
+<p>当后端返回 401 未授权错误时（通常表示 token 已过期），除了清除 localStorage 中的 token，我们也会同步清除 Cookie 中的 token：</p>
+<div class="language-typescript line-numbers-mode" data-highlighter="prismjs" data-ext="ts"><pre v-pre><code><span class="line"><span class="token keyword">case</span> <span class="token number">401</span><span class="token operator">:</span></span>
+<span class="line">    store<span class="token punctuation">.</span><span class="token function">remove</span><span class="token punctuation">(</span><span class="token string">'token'</span><span class="token punctuation">)</span></span>
+<span class="line">    store<span class="token punctuation">.</span><span class="token function">clear_cookie</span><span class="token punctuation">(</span><span class="token string">'token'</span><span class="token punctuation">)</span> <span class="token comment">// 同步清除 Cookie</span></span>
+<span class="line">    <span class="token keyword">break</span></span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>这确保了当 token 失效时，轮询机制不会误判已登录状态。</p>
+<h2 id="工作流程" tabindex="-1"><a class="header-anchor" href="#工作流程"><span>工作流程</span></a></h2>
+<p>让我们通过流程图来理解整个方案：</p>
+<h3 id="多标签页同步流程" tabindex="-1"><a class="header-anchor" href="#多标签页同步流程"><span>多标签页同步流程</span></a></h3>
+<div class="language-mermaid line-numbers-mode" data-highlighter="prismjs" data-ext="mermaid"><pre v-pre><code><span class="line"><span class="token keyword">graph</span> TD</span>
+<span class="line">    A<span class="token text string">[用户打开两个标签页]</span> <span class="token arrow operator">--></span> B<span class="token text string">[标签页 A: 登录页面]</span></span>
+<span class="line">    A <span class="token arrow operator">--></span> C<span class="token text string">[标签页 B: 登录页面]</span></span>
+<span class="line"></span>
+<span class="line">    C <span class="token arrow operator">--></span> D<span class="token text string">[启动轮询监测]</span></span>
+<span class="line">    D <span class="token arrow operator">--></span> E<span class="token text string">[每1秒检查 Cookie 中的 token]</span></span>
+<span class="line"></span>
+<span class="line">    B <span class="token arrow operator">--></span> F<span class="token text string">[用户在标签页 A 完成登录]</span></span>
+<span class="line">    F <span class="token arrow operator">--></span> G<span class="token text string">[系统在 Cookie 中存储 token]</span></span>
+<span class="line"></span>
+<span class="line">    G <span class="token arrow operator">--></span> H<span class="token text string">[标签页 B 检测到 token]</span></span>
+<span class="line">    H <span class="token arrow operator">--></span> I<span class="token text string">[自动刷新页面]</span></span>
+<span class="line">    I <span class="token arrow operator">--></span> J<span class="token text string">[两个标签页状态同步完成]</span></span>
+<span class="line"></span>
+<span class="line">    <span class="token keyword">style</span> A <span class="token style"><span class="token property">fill</span><span class="token operator">:</span>#e1f5ff</span></span>
+<span class="line">    <span class="token keyword">style</span> F <span class="token style"><span class="token property">fill</span><span class="token operator">:</span>#fff4e1</span></span>
+<span class="line">    <span class="token keyword">style</span> G <span class="token style"><span class="token property">fill</span><span class="token operator">:</span>#e8f5e9</span></span>
+<span class="line">    <span class="token keyword">style</span> J <span class="token style"><span class="token property">fill</span><span class="token operator">:</span>#f3e5f5</span></span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h3 id="轮询检测逻辑" tabindex="-1"><a class="header-anchor" href="#轮询检测逻辑"><span>轮询检测逻辑</span></a></h3>
+<div class="language-mermaid line-numbers-mode" data-highlighter="prismjs" data-ext="mermaid"><pre v-pre><code><span class="line"><span class="token keyword">flowchart</span> TD</span>
+<span class="line">    A<span class="token text string">[启动定时器]</span> <span class="token arrow operator">--></span> B<span class="token text string">[每1秒检查一次]</span></span>
+<span class="line">    B <span class="token arrow operator">--></span> C<span class="token text string">{Cookie 中是否有 token?}</span></span>
+<span class="line"></span>
+<span class="line">    C <span class="token arrow operator">--></span><span class="token label property">|有|</span> D<span class="token text string">[清除定时器并刷新页面]</span></span>
+<span class="line">    C <span class="token arrow operator">--></span><span class="token label property">|无|</span> E<span class="token text string">{是否超过5分钟?}</span></span>
+<span class="line"></span>
+<span class="line">    E <span class="token arrow operator">--></span><span class="token label property">|否|</span> B</span>
+<span class="line">    E <span class="token arrow operator">--></span><span class="token label property">|是|</span> F<span class="token text string">[停止轮询]</span></span>
+<span class="line"></span>
+<span class="line">    G<span class="token text string">[用户点击登录]</span> <span class="token arrow operator">--></span> H<span class="token text string">{验证是否通过?}</span></span>
+<span class="line">    H <span class="token arrow operator">--></span><span class="token label property">|是|</span> I<span class="token text string">[清除定时器并发送请求]</span></span>
+<span class="line">    H <span class="token arrow operator">--></span><span class="token label property">|否|</span> J<span class="token text string">[继续轮询监测]</span></span>
+<span class="line"></span>
+<span class="line">    I <span class="token arrow operator">--></span> K<span class="token text string">{登录结果}</span></span>
+<span class="line">    K <span class="token arrow operator">--></span><span class="token label property">|成功|</span> L<span class="token text string">[登录成功]</span></span>
+<span class="line">    K <span class="token arrow operator">--></span><span class="token label property">|失败|</span> M<span class="token text string">[重新启动轮询]</span></span>
+<span class="line"></span>
+<span class="line">    J <span class="token arrow operator">--></span> B</span>
+<span class="line">    M <span class="token arrow operator">--></span> B</span>
+<span class="line"></span>
+<span class="line">    <span class="token keyword">style</span> A <span class="token style"><span class="token property">fill</span><span class="token operator">:</span>#e1f5ff</span></span>
+<span class="line">    <span class="token keyword">style</span> C <span class="token style"><span class="token property">fill</span><span class="token operator">:</span>#fff4e1</span></span>
+<span class="line">    <span class="token keyword">style</span> D <span class="token style"><span class="token property">fill</span><span class="token operator">:</span>#e8f5e9</span></span>
+<span class="line">    <span class="token keyword">style</span> F <span class="token style"><span class="token property">fill</span><span class="token operator">:</span>#ffebee</span></span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h2 id="方案优势" tabindex="-1"><a class="header-anchor" href="#方案优势"><span>方案优势</span></a></h2>
+<ol>
+<li><strong>简单有效</strong>：实现简单，代码量少，但能有效解决问题</li>
+<li><strong>用户体验好</strong>：自动同步，用户无感知，无需手动刷新</li>
+<li><strong>资源可控</strong>：5 分钟超时保护，避免无限轮询</li>
+<li><strong>智能管理</strong>：只在必要时清除定时器，验证失败时继续工作</li>
+<li><strong>失败恢复</strong>：登录失败后自动恢复轮询，确保状态同步</li>
+</ol>
+<h2 id="实际效果" tabindex="-1"><a class="header-anchor" href="#实际效果"><span>实际效果</span></a></h2>
+<p>实施这个方案后，我们解决了以下问题：</p>
+<ul>
+<li>✅ 用户在标签页 A 登录后，标签页 B 会在 1 秒内自动刷新并同步登录状态</li>
+<li>✅ 避免了重复登录导致的 token 冲突问题</li>
+<li>✅ 提升了用户体验，无需手动刷新页面</li>
+<li>✅ 登录失败后仍能继续监测其他标签页的登录状态</li>
+</ul>
+<h2 id="技术细节" tabindex="-1"><a class="header-anchor" href="#技术细节"><span>技术细节</span></a></h2>
+<h3 id="定时器管理" tabindex="-1"><a class="header-anchor" href="#定时器管理"><span>定时器管理</span></a></h3>
+<ul>
+<li>使用 <code v-pre>setInterval</code> 创建定时器，存储定时器 ID</li>
+<li>组件卸载时清除定时器，防止内存泄漏</li>
+<li>避免重复创建定时器（检查定时器是否已存在）</li>
+</ul>
+<h3 id="cookie-操作" tabindex="-1"><a class="header-anchor" href="#cookie-操作"><span>Cookie 操作</span></a></h3>
+<ul>
+<li>登录成功后通过 <code v-pre>set_cookie</code> 将 token 存入 Cookie</li>
+<li>轮询时通过 <code v-pre>get_cookie</code> 读取 Cookie 中的 token</li>
+<li>401 异常时通过 <code v-pre>clear_cookie</code> 清除 Cookie 中的 token</li>
+</ul>
+<h3 id="生命周期管理" tabindex="-1"><a class="header-anchor" href="#生命周期管理"><span>生命周期管理</span></a></h3>
+<div class="language-typescript line-numbers-mode" data-highlighter="prismjs" data-ext="ts"><pre v-pre><code><span class="line"><span class="token function">onMounted</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span></span>
+<span class="line">  <span class="token function">startTokenPolling</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token comment">// 页面挂载时启动轮询</span></span>
+<span class="line"><span class="token punctuation">}</span><span class="token punctuation">)</span></span>
+<span class="line"></span>
+<span class="line"><span class="token function">onBeforeUnmount</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span></span>
+<span class="line">  <span class="token function">clearTokenPolling</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token comment">// 组件卸载时清除定时器</span></span>
+<span class="line"><span class="token punctuation">}</span><span class="token punctuation">)</span></span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h2 id="注意事项" tabindex="-1"><a class="header-anchor" href="#注意事项"><span>注意事项</span></a></h2>
+<ol>
+<li><strong>Cookie 作用域</strong>：确保 Cookie 的 <code v-pre>domain</code> 设置正确，多个标签页能够共享同一 Cookie</li>
+<li><strong>轮询频率</strong>：1 秒一次是平衡及时性和性能的折中选择，可根据实际需求调整</li>
+<li><strong>超时时间</strong>：5 分钟的超时保护可根据业务场景调整</li>
+<li><strong>性能影响</strong>：定时器会增加一定的性能开销，但影响很小（每 1 秒执行一次简单判断）</li>
+</ol>
+<h2 id="总结" tabindex="-1"><a class="header-anchor" href="#总结"><span>总结</span></a></h2>
+<p>这个方案通过简单的轮询机制，优雅地解决了多标签页登录状态同步的问题。虽然轮询不是最高效的方式，但在实际应用中，它简单、可靠、易于维护，是一个很好的折中选择。</p>
+<h3 id="为什么选择轮询方案" tabindex="-1"><a class="header-anchor" href="#为什么选择轮询方案"><span>为什么选择轮询方案？</span></a></h3>
+<p>我们选择轮询方案主要基于以下考虑：</p>
+<ol>
+<li><strong>兼容性优先</strong>：轮询方案在所有浏览器中都能正常工作，包括 IE，无需担心兼容性问题</li>
+<li><strong>实现简单</strong>：代码逻辑清晰，易于理解和维护，团队协作成本低</li>
+<li><strong>稳定可靠</strong>：不依赖特定的浏览器 API，减少了潜在的失败点</li>
+<li><strong>性能可接受</strong>：虽然每秒执行一次，但只是简单的 Cookie 检查，性能影响很小</li>
+</ol>
+<h3 id="更优方案-broadcastchannel-api" tabindex="-1"><a class="header-anchor" href="#更优方案-broadcastchannel-api"><span>更优方案：BroadcastChannel API</span></a></h3>
+<p>如果你追求更好的性能和实时性，可以考虑使用 <code v-pre>BroadcastChannel API</code>。这是一个更优雅的解决方案。</p>
+<h4 id="broadcastchannel-的优势" tabindex="-1"><a class="header-anchor" href="#broadcastchannel-的优势"><span>BroadcastChannel 的优势</span></a></h4>
+<p><code v-pre>BroadcastChannel</code> 允许同源的不同标签页之间进行消息通信，相比轮询方案有以下优势：</p>
+<ol>
+<li><strong>实时性更好</strong>：事件驱动，无需等待轮询间隔，检测到 token 后立即响应</li>
+<li><strong>性能更优</strong>：无持续 CPU 开销，只在事件触发时执行，资源消耗更低</li>
+<li><strong>代码更简洁</strong>：无需定时器和超时处理逻辑，代码量更少</li>
+</ol>
+<h4 id="实现示例" tabindex="-1"><a class="header-anchor" href="#实现示例"><span>实现示例</span></a></h4>
+<p>使用 BroadcastChannel 的实现非常简单：</p>
+<p><strong>登录成功后发送消息</strong>：</p>
+<div class="language-typescript line-numbers-mode" data-highlighter="prismjs" data-ext="ts"><pre v-pre><code><span class="line"><span class="token comment">// 登录成功后</span></span>
+<span class="line"><span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">typeof</span> BroadcastChannel <span class="token operator">!==</span> <span class="token string">'undefined'</span><span class="token punctuation">)</span> <span class="token punctuation">{</span></span>
+<span class="line">    <span class="token keyword">const</span> channel <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">BroadcastChannel</span><span class="token punctuation">(</span><span class="token string">'token-sync'</span><span class="token punctuation">)</span></span>
+<span class="line">    channel<span class="token punctuation">.</span><span class="token function">postMessage</span><span class="token punctuation">(</span><span class="token punctuation">{</span> type<span class="token operator">:</span> <span class="token string">'TOKEN_AVAILABLE'</span> <span class="token punctuation">}</span><span class="token punctuation">)</span></span>
+<span class="line">    channel<span class="token punctuation">.</span><span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span>
+<span class="line"><span class="token punctuation">}</span></span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p><strong>登录页面监听消息</strong>：</p>
+<div class="language-typescript line-numbers-mode" data-highlighter="prismjs" data-ext="ts"><pre v-pre><code><span class="line"><span class="token keyword">const</span> channel <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">BroadcastChannel</span><span class="token punctuation">(</span><span class="token string">'token-sync'</span><span class="token punctuation">)</span></span>
+<span class="line"></span>
+<span class="line">channel<span class="token punctuation">.</span><span class="token function-variable function">onmessage</span> <span class="token operator">=</span> <span class="token punctuation">(</span>event<span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span></span>
+<span class="line">    <span class="token keyword">if</span> <span class="token punctuation">(</span>event<span class="token punctuation">.</span>data<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">'TOKEN_AVAILABLE'</span><span class="token punctuation">)</span> <span class="token punctuation">{</span></span>
+<span class="line">        <span class="token comment">// 收到其他标签页登录消息，刷新页面</span></span>
+<span class="line">        channel<span class="token punctuation">.</span><span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span>
+<span class="line">        window<span class="token punctuation">.</span>location<span class="token punctuation">.</span><span class="token function">reload</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span>
+<span class="line">    <span class="token punctuation">}</span></span>
+<span class="line"><span class="token punctuation">}</span></span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>就这么简单！无需定时器，无需轮询，代码更清晰。</p>
+<h4 id="方案对比" tabindex="-1"><a class="header-anchor" href="#方案对比"><span>方案对比</span></a></h4>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>轮询方案（当前）</th>
+<th>BroadcastChannel</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>实时性</strong></td>
+<td>最多 1 秒延迟</td>
+<td>即时响应</td>
+</tr>
+<tr>
+<td><strong>性能</strong></td>
+<td>每秒执行一次</td>
+<td>事件触发，无持续开销</td>
+</tr>
+<tr>
+<td><strong>浏览器支持</strong></td>
+<td>所有浏览器</td>
+<td>现代浏览器（IE 不支持）</td>
+</tr>
+<tr>
+<td><strong>代码复杂度</strong></td>
+<td>简单</td>
+<td>更简单</td>
+</tr>
+</tbody>
+</table>
+<h4 id="混合方案-推荐" tabindex="-1"><a class="header-anchor" href="#混合方案-推荐"><span>混合方案（推荐）</span></a></h4>
+<p>如果你既想要 BroadcastChannel 的性能优势，又需要兼容旧浏览器，可以采用混合方案：</p>
+<div class="language-typescript line-numbers-mode" data-highlighter="prismjs" data-ext="ts"><pre v-pre><code><span class="line"><span class="token keyword">const</span> <span class="token function-variable function">setupTokenSync</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span></span>
+<span class="line">  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">typeof</span> BroadcastChannel <span class="token operator">!==</span> <span class="token string">'undefined'</span><span class="token punctuation">)</span> <span class="token punctuation">{</span></span>
+<span class="line">    <span class="token comment">// 使用 BroadcastChannel</span></span>
+<span class="line">    <span class="token keyword">const</span> channel <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">BroadcastChannel</span><span class="token punctuation">(</span><span class="token string">'token-sync'</span><span class="token punctuation">)</span></span>
+<span class="line">    channel<span class="token punctuation">.</span><span class="token function-variable function">onmessage</span> <span class="token operator">=</span> <span class="token punctuation">(</span>event<span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span></span>
+<span class="line">      <span class="token keyword">if</span> <span class="token punctuation">(</span>event<span class="token punctuation">.</span>data<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">'TOKEN_AVAILABLE'</span><span class="token punctuation">)</span> <span class="token punctuation">{</span></span>
+<span class="line">        window<span class="token punctuation">.</span>location<span class="token punctuation">.</span><span class="token function">reload</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span>
+<span class="line">      <span class="token punctuation">}</span></span>
+<span class="line">    <span class="token punctuation">}</span></span>
+<span class="line"></span>
+<span class="line">    <span class="token comment">// 作为降级，每 5 秒检查一次 Cookie（防止消息丢失）</span></span>
+<span class="line">    <span class="token function">setInterval</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span></span>
+<span class="line">      <span class="token keyword">if</span> <span class="token punctuation">(</span>Store<span class="token punctuation">.</span><span class="token function">get_cookie</span><span class="token punctuation">(</span><span class="token string">'token'</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span></span>
+<span class="line">        window<span class="token punctuation">.</span>location<span class="token punctuation">.</span><span class="token function">reload</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span>
+<span class="line">      <span class="token punctuation">}</span></span>
+<span class="line">    <span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token number">5000</span><span class="token punctuation">)</span></span>
+<span class="line">  <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span></span>
+<span class="line">    <span class="token comment">// 降级到轮询方案</span></span>
+<span class="line">    <span class="token function">startTokenPolling</span><span class="token punctuation">(</span><span class="token punctuation">)</span></span>
+<span class="line">  <span class="token punctuation">}</span></span>
+<span class="line"><span class="token punctuation">}</span></span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>这样，现代浏览器享受 BroadcastChannel 的性能优势，旧浏览器自动降级到轮询方案，既保证了性能，又保证了兼容性。</p>
+<h3 id="其他优化方向" tabindex="-1"><a class="header-anchor" href="#其他优化方向"><span>其他优化方向</span></a></h3>
+<ol>
+<li><strong>服务端推送</strong>：如果后端支持 WebSocket，可以通过服务端推送来实现更实时的状态同步</li>
+<li><strong>用户体验优化</strong>：可以在检测到 token 后，先显示一个&quot;正在同步登录状态...&quot;的提示，再刷新页面</li>
+<li><strong>动态轮询频率</strong>：可以根据时间动态调整轮询频率，比如前 1 分钟每秒检查，之后降低频率</li>
+</ol>
+<h3 id="适用场景" tabindex="-1"><a class="header-anchor" href="#适用场景"><span>适用场景</span></a></h3>
+<p>这个方案特别适合：</p>
+<ul>
+<li>微服务架构中的授权中心</li>
+<li>需要多标签页状态同步的 Web 应用</li>
+<li>对实时性要求不是特别高的场景（1 秒延迟可接受）</li>
+</ul>
+<p>如果你的应用主要面向现代浏览器用户，建议考虑 BroadcastChannel 方案；如果需要兼容旧浏览器，轮询方案或混合方案都是不错的选择。</p>
+<p>希望这个方案能对遇到类似问题的开发者有所帮助。如果你有更好的想法或建议，欢迎交流讨论！</p>
+<hr>
+<p><strong>相关技术栈</strong>：Vue 3、TypeScript、Axios、微前端</p>
+</div></template>
+
+
