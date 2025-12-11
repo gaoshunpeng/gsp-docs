@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="generator" content="VuePress 2.0.0-rc.20" />
+    <style>
+      :root {
+        --vp-c-bg: #fff;
+      }
+
+      [data-theme='dark'] {
+        --vp-c-bg: #1b1b1f;
+      }
+
+      html,
+      body {
+        background-color: var(--vp-c-bg);
+      }
+    </style>
+    <script>
+      const useChoice = localStorage.getItem('vuepress-color-scheme')
+      const systemStatus =
+        'matchMedia' in window
+          ? window.matchMedia('(prefers-color-scheme: dark)').matches
+          : false
+
+      if (useChoice === 'light') {
+        document.documentElement.dataset.theme = 'light'
+      } else if (useChoice === 'dark' || systemStatus) {
+        document.documentElement.dataset.theme = 'dark'
+      }
+    </script>
+    <title>VuePress</title><meta name="description" content="My first VuePress Site">
+    <link rel="preload" href="/assets/style-q4IpSdP0.css" as="style"><link rel="stylesheet" href="/assets/style-q4IpSdP0.css">
+    <link rel="modulepreload" href="/assets/app-BJjAAN56.js"><link rel="modulepreload" href="/assets/404.html-KFDkpW3Q.js">
+    <link rel="prefetch" href="/assets/get-started.html-DUyVNsUO.js" as="script"><link rel="prefetch" href="/assets/index.html-DR87xxfq.js" as="script"><link rel="prefetch" href="/assets/SSO单点登录实现方案.html-DG9st2YC.js" as="script"><link rel="prefetch" href="/assets/从“版本号打架”到 30 秒内提醒用户刷新：一个微前端团队的实践.html-CGTABLn2.js" as="script"><link rel="prefetch" href="/assets/多标签页登录状态同步：一个简单而有效的解决方案.html-DJbTYI3S.js" as="script">
+  </head>
+  <body>
+    <div id="app"><!--[--><div class="vp-theme-container" vp-container data-v-38e1aa4a><main class="page" data-v-38e1aa4a><div vp-content data-v-38e1aa4a><h1 data-v-38e1aa4a>404</h1><blockquote data-v-38e1aa4a>How did we get here?</blockquote><a class="route-link" href="/" data-v-38e1aa4a>Take me home</a></div></main></div><!--[--><!----><!--]--><!--]--></div>
+    <script type="module" src="/assets/app-BJjAAN56.js" defer></script>
+  </body>
+</html>

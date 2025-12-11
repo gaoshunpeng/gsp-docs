@@ -1,8 +1,3 @@
-# VuePress build output
-docs/.vuepress/dist
-docs/.vuepress/.cache
-docs/.vuepress/.temp
-
 # Node.js dependencies
 node_modules/
 
@@ -15,9 +10,6 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
 .DS_Store
 *.suo
 *.ntvs*
@@ -28,17 +20,3 @@ lerna-debug.log*
 # OS files
 Thumbs.db
 .DS_Store
-
-# Environment variables
-.env
-.env.local
-.env.*.local
-
-# Temporary files
-*.tmp
-*.temp
-.cache/
-
-# Build artifacts
-dist/
-build/
