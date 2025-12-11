@@ -4,9 +4,10 @@ import { viteBundler } from "@vuepress/bundler-vite";
 
 export default defineUserConfig({
   lang: "zh-CN",
+  base: "/gsp-docs/",
 
-  title: "VuePress",
-  description: "My first VuePress Site",
+  title: "高顺鹏的文档库",
+  description: "高顺鹏的markdown文档库",
 
   theme: defaultTheme({
     logo: "https://vuejs.press/images/hero.png",
